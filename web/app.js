@@ -217,6 +217,12 @@ const PDFViewerApplication = {
       await this._parseHashParams();
     }
 
+    this._documentContext = await this.externalServices.getDocumentContext();
+    if (this._documentContext) {
+      this.isViewerEmbedded = this._documentContext.embedded;
+      this.initialBookmark = this._documentContext.initialBookmark;
+    }
+
     let mode;
     switch (AppOptions.get("viewerCssTheme")) {
       case 1:
@@ -759,10 +765,14 @@ const PDFViewerApplication = {
 
     // The browsing history is only enabled when the viewer is standalone,
     // i.e. not when it is embedded in a web page.
-    if (!this.isViewerEmbedded && !AppOptions.get("disableHistory")) {
+    if (
+      (!this.isViewerEmbedded || this._documentContext?.history) &&
+      !AppOptions.get("disableHistory")
+    ) {
       this.pdfHistory = new PDFHistory({
         linkService,
         eventBus,
+        history: this._documentContext?.history,
       });
       linkService.setHistory(this.pdfHistory);
     }
@@ -1404,6 +1414,9 @@ const PDFViewerApplication = {
 
     if (args.data && isPdfFile(args.filename)) {
       this._contentDispositionFilename = args.filename;
+      if (this._documentContext && args.url) {
+        this.setTitleUsingUrl(args.originalUrl || args.url, args.url);
+      }
     } else if (
       (typeof PDFJSDev === "undefined" || !PDFJSDev.test("MOZCENTRAL")) &&
       args.url

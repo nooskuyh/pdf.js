@@ -60,6 +60,7 @@ async function initializePDFJS(callback) {
       "pdfjs-test/unit/catalog_spec.js",
       "pdfjs-test/unit/cff_parser_spec.js",
       "pdfjs-test/unit/char_code_map_spec.js",
+      "pdfjs-test/unit/chrome_history_spec.js",
       "pdfjs-test/unit/cmap_spec.js",
       "pdfjs-test/unit/colorspace_spec.js",
       "pdfjs-test/unit/core_utils_spec.js",

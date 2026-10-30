@@ -14,6 +14,12 @@
  */
 /* globals chrome */
 
+import { connectBrowserHistory, MemoryHistory } from "./chrome_history.js";
+import {
+  getMimeDocumentInfo,
+  isMimeDocument,
+  loadMimeDocument,
+} from "./chrome_mime_document.js";
 import { AppOptions } from "./app_options.js";
 import { BaseExternalServices } from "./external_services.js";
 import { BasePreferences } from "./preferences.js";
@@ -33,6 +39,9 @@ if (typeof PDFJSDev === "undefined" || !PDFJSDev.test("CHROME")) {
 }
 
 (function rewriteUrlClosure() {
+  if (isMimeDocument) {
+    return;
+  }
   // Run this code outside DOMContentLoaded to make sure that the URL
   // is rewritten as soon as possible.
   const queryString = document.location.search.slice(1);
@@ -422,7 +431,40 @@ class Preferences extends BasePreferences {
 }
 
 class ExternalServices extends BaseExternalServices {
+  async getDocumentContext() {
+    if (!isMimeDocument) {
+      return null;
+    }
+    const info = await getMimeDocumentInfo();
+    if (!info) {
+      return null;
+    }
+    let history = null;
+    if (!AppOptions.get("disableHistory")) {
+      history = await connectBrowserHistory(info);
+      if (history) {
+        window.history.scrollRestoration = "manual";
+      } else {
+        history = new MemoryHistory();
+        if (!info.embedded) {
+          console.warn(
+            "PDF history bridge unavailable. Check extension site/file access."
+          );
+        }
+      }
+    }
+    return {
+      embedded: info.embedded,
+      initialBookmark: new URL(info.originalUrl).hash.slice(1),
+      history,
+    };
+  }
+
   initPassiveLoading() {
+    if (isMimeDocument) {
+      void loadMimeDocument(viewerApp);
+      return;
+    }
     ChromeCom.resolvePDFFile(
       AppOptions.get("defaultUrl"),
       function (url, length, originalUrl) {

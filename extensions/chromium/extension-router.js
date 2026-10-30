@@ -73,16 +73,20 @@ limitations under the License.
     return undefined;
   }
 
-  self.addEventListener("fetch", event => {
-    const req = event.request;
-    if (req.destination === "document") {
-      var url = resolveViewerURL(req.url);
-      if (url) {
-        console.log("Redirecting " + req.url + " to " + url);
-        event.respondWith(Response.redirect(url));
+  // A fetch listener intercepts the single-use MIME stream URL even without
+  // respondWith(). Leave native streams to the browser's stream loader.
+  if (typeof chrome.mimeHandler?.getStreamInfo !== "function") {
+    self.addEventListener("fetch", event => {
+      const req = event.request;
+      if (req.destination === "document") {
+        var url = resolveViewerURL(req.url);
+        if (url) {
+          console.log("Redirecting " + req.url + " to " + url);
+          event.respondWith(Response.redirect(url));
+        }
       }
-    }
-  });
+    });
+  }
 
   // Ctrl + F5 bypasses service worker. the pretty extension URLs will fail to
   // resolve in that case. Catch this and redirect to destination.

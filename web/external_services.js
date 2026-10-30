@@ -29,6 +29,14 @@ class BaseExternalServices {
 
   initPassiveLoading() {}
 
+  /**
+   * Optional browser-owned document context and session-history backend.
+   * @returns {Promise<object|null>}
+   */
+  async getDocumentContext() {
+    return null;
+  }
+
   reportTelemetry(data) {}
 
   reportText(data) {}

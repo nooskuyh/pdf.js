@@ -20,29 +20,40 @@ limitations under the License.
 
 var VIEWER_URL = chrome.runtime.getURL("content/web/viewer.html");
 
+function supportsPdfMimeHandler() {
+  return typeof chrome.mimeHandler?.getStreamInfo === "function";
+}
+
 // Use in-memory storage to ensure that the DNR rules have been registered at
 // least once per session. runtime.onInstalled would have been the most fitting
 // event to ensure that, except there are cases where it does not fire when
 // needed. E.g. in incognito mode: https://issues.chromium.org/issues/41029550
-chrome.storage.session.get({ hasPdfRedirector: false }, async items => {
-  if (items?.hasPdfRedirector) {
-    return;
-  }
-  const rules = await chrome.declarativeNetRequest.getDynamicRules();
-  if (rules.length) {
-    // Dynamic rules persist across extension updates. We don't expect other
-    // dynamic rules, so just remove them all.
-    await chrome.declarativeNetRequest.updateDynamicRules({
-      removeRuleIds: rules.map(r => r.id),
+chrome.storage.session.get(
+  { hasPdfRedirector: false, pdfRedirectMode: "" },
+  async items => {
+    const mode = supportsPdfMimeHandler() ? "mime" : "legacy";
+    if (items?.hasPdfRedirector && items.pdfRedirectMode === mode) {
+      return;
+    }
+    const rules = await chrome.declarativeNetRequest.getDynamicRules();
+    if (rules.length) {
+      // Dynamic rules persist across extension updates. We don't expect other
+      // dynamic rules, so just remove them all.
+      await chrome.declarativeNetRequest.updateDynamicRules({
+        removeRuleIds: rules.map(r => r.id),
+      });
+    }
+    await registerPdfRedirectRule();
+
+    // Only set the flag in the end, so that we know for sure that all
+    // asynchronous initialization logic has run. If not, then we will run the
+    // logic again at the next background wakeup.
+    chrome.storage.session.set({
+      hasPdfRedirector: true,
+      pdfRedirectMode: mode,
     });
   }
-  await registerPdfRedirectRule();
-
-  // Only set the flag in the end, so that we know for sure that all
-  // asynchronous initialization logic has run. If not, then we will run the
-  // logic again at the next background wakeup.
-  chrome.storage.session.set({ hasPdfRedirector: true });
-});
+);
 
 /**
  * Registers declarativeNetRequest rules to redirect PDF requests to the viewer.
@@ -192,10 +203,28 @@ async function registerPdfRedirectRule() {
       action: ACTION_REDIRECT_TO_VIEWER,
     },
   ];
-  for (const [i, rule] of addRules.entries()) {
+  // Native MIME handling owns application/pdf and local PDF navigations. Keep
+  // legacy rules only for PDFs served with the wrong MIME type. Old dynamic
+  // rules are removed above when updating from a pre-MIME build.
+  const rulesForMode = supportsPdfMimeHandler()
+    ? addRules.filter(rule => {
+        if (rule.action.type !== "redirect") {
+          return true;
+        }
+        if (rule.condition.regexFilter?.startsWith("^file:")) {
+          return false;
+        }
+        return !rule.condition.responseHeaders?.some(
+          header =>
+            header.header === "content-type" &&
+            header.values?.includes("application/pdf")
+        );
+      })
+    : addRules;
+  for (const [i, rule] of rulesForMode.entries()) {
     // id must be unique and at least 1, but i starts at 0. So add +1.
     rule.id = i + 1;
-    rule.priority = addRules.length - i;
+    rule.priority = rulesForMode.length - i;
   }
   try {
     // Note: condition.responseHeaders is only supported in Chrome 128+, but
@@ -208,7 +237,9 @@ async function registerPdfRedirectRule() {
     if (!(await isHeaderConditionSupported())) {
       throw new Error("DNR responseHeaders condition is not supported.");
     }
-    await chrome.declarativeNetRequest.updateDynamicRules({ addRules });
+    await chrome.declarativeNetRequest.updateDynamicRules({
+      addRules: rulesForMode,
+    });
   } catch (e) {
     // When we do not register DNR rules for any reason, fall back to catching
     // PDF documents via maybeRenderPdfDoc in contentscript.js.
@@ -283,6 +314,9 @@ function getViewerURL(pdf_url) {
 // user to activate file permissions.
 chrome.webNavigation.onBeforeNavigate.addListener(
   function (details) {
+    if (supportsPdfMimeHandler()) {
+      return;
+    }
     // Note: pdfjs.action=download is not checked here because that code path
     // is not reachable for local files through the viewer when we do not have
     // file:-access.
@@ -314,6 +348,11 @@ chrome.webNavigation.onBeforeNavigate.addListener(
 );
 
 chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
+  if (message?.action === "getPdfHandlingMode") {
+    sendResponse(supportsPdfMimeHandler() ? "mime" : "legacy");
+    return undefined;
+  }
+
   if (message && message.action === "getParentOrigin") {
     // getParentOrigin is used to determine whether it is safe to embed a
     // sensitive (local) file in a frame.

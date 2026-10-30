@@ -22,10 +22,16 @@ function getViewerURL(pdf_url) {
   return VIEWER_URL + "?file=" + encodeURIComponent(pdf_url);
 }
 
-document.addEventListener("animationstart", onAnimationStart, true);
-if (document.contentType === "application/pdf") {
-  chrome.runtime.sendMessage({ action: "canRequestBody" }, maybeRenderPdfDoc);
-}
+chrome.runtime.sendMessage({ action: "getPdfHandlingMode" }, mode => {
+  if (chrome.runtime.lastError || mode !== "legacy") {
+    return;
+  }
+  document.addEventListener("animationstart", onAnimationStart, true);
+  document.querySelectorAll("object, embed").forEach(watchObjectOrEmbed);
+  if (document.contentType === "application/pdf") {
+    chrome.runtime.sendMessage({ action: "canRequestBody" }, maybeRenderPdfDoc);
+  }
+});
 
 function onAnimationStart(event) {
   if (event.animationName === "pdfjs-detected-object-or-embed") {

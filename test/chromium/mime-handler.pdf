@@ -1,0 +1,66 @@
+%PDF-1.7
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R /Outlines 10 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R 5 0 R 7 0 R] /Count 3 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 9 0 R >> >> /Contents 4 0 R >>
+endobj
+4 0 obj
+<< /Length 43 >>
+stream
+BT /F1 24 Tf 72 700 Td (Introduction) Tj ET
+endstream
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 9 0 R >> >> /Contents 6 0 R >>
+endobj
+6 0 obj
+<< /Length 53 >>
+stream
+BT /F1 24 Tf 72 700 Td (Methods and validation) Tj ET
+endstream
+endobj
+7 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 9 0 R >> >> /Contents 8 0 R >>
+endobj
+8 0 obj
+<< /Length 38 >>
+stream
+BT /F1 24 Tf 72 700 Td (Results) Tj ET
+endstream
+endobj
+9 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+10 0 obj
+<< /Type /Outlines /First 11 0 R /Last 12 0 R /Count 2 >>
+endobj
+11 0 obj
+<< /Title (Introduction) /Parent 10 0 R /Dest [3 0 R /Fit] /Next 12 0 R >>
+endobj
+12 0 obj
+<< /Title (Methods and validation) /Parent 10 0 R /Dest [5 0 R /Fit] /Prev 11 0 R >>
+endobj
+xref
+0 13
+0000000000 65535 f 
+0000000009 00000 n 
+0000000075 00000 n 
+0000000144 00000 n 
+0000000270 00000 n 
+0000000363 00000 n 
+0000000489 00000 n 
+0000000592 00000 n 
+0000000718 00000 n 
+0000000806 00000 n 
+0000000876 00000 n 
+0000000950 00000 n 
+0000001041 00000 n 
+trailer
+<< /Size 13 /Root 1 0 R >>
+startxref
+1142
+%%EOF

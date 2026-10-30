@@ -20,6 +20,22 @@ limitations under the License.
 // viewer is not displaying any PDF files. Otherwise the tabs would close, which
 // is quite disruptive (crbug.com/511670).
 chrome.runtime.onUpdateAvailable.addListener(function () {
+  // A native MIME viewer is a child frame of the original PDF URL, so the
+  // tab URL query below cannot see it. Chrome versions exposing mimeHandler
+  // also support getContexts, which includes the extension's viewer frames.
+  if (typeof chrome.mimeHandler?.getStreamInfo === "function") {
+    chrome.runtime.getContexts({ contextTypes: ["TAB"] }).then(
+      contexts => {
+        if (!contexts.length) {
+          chrome.runtime.reload();
+        }
+      },
+      () => {
+        // Defer the update if we cannot establish that no viewer is open.
+      }
+    );
+    return;
+  }
   chrome.tabs.query({ url: chrome.runtime.getURL("*") }, tabs => {
     if (tabs?.length) {
       return;

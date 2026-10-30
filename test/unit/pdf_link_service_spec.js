@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 
+import { EventBus } from "../../web/event_utils.js";
 import { PDFLinkService } from "../../web/pdf_link_service.js";
 
 describe("PDFLinkService", function () {
@@ -110,6 +111,66 @@ describe("PDFLinkService", function () {
 
       expect(link.href).toEqual("");
       expect(link.title).toEqual("Disabled: https://attacker.example/path");
+    });
+  });
+  describe("external history destination focus", function () {
+    async function setup() {
+      const eventBus = new EventBus();
+      const service = new PDFLinkService({ eventBus });
+      service.setHistory({
+        usesExternalHistory: true,
+        pushCurrentPosition() {},
+        push() {},
+      });
+      service.setViewer({
+        currentPageNumber: 1,
+        pagesRotation: 0,
+        scrollPageIntoView({ pageNumber }) {
+          this.currentPageNumber = pageNumber;
+        },
+      });
+      service.setDocument({ pagesMapper: { pagesNumber: 3 } });
+      await service.goToDestination([2, { name: "Fit" }]);
+      const focus = { calls: 0 };
+      return {
+        service,
+        focus,
+        render() {
+          eventBus.dispatch("textlayerrendered", {
+            pageNumber: 3,
+            source: {
+              textLayer: {
+                div: {
+                  focus() {
+                    focus.calls++;
+                  },
+                },
+              },
+            },
+          });
+        },
+      };
+    }
+
+    it("cancels late focus after restoring another page", async function () {
+      const { service, render, focus } = await setup();
+      service.setHash("page=1");
+      render();
+      expect(focus.calls).toEqual(0);
+      expect(service.page).toEqual(1);
+    });
+
+    it("cancels late focus after restoring a position on the same page", async function () {
+      const { service, render, focus } = await setup();
+      service.setHash("page=3");
+      render();
+      expect(focus.calls).toEqual(0);
+    });
+
+    it("retains focus when the destination remains current", async function () {
+      const { render, focus } = await setup();
+      render();
+      expect(focus.calls).toEqual(1);
     });
   });
 });

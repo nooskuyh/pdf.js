@@ -51,6 +51,8 @@ const LinkTarget = {
  * or destination.
  */
 class PDFLinkService {
+  #destinationFocusAC = null;
+
   externalLinkEnabled = true;
 
   /**
@@ -74,6 +76,7 @@ class PDFLinkService {
   }
 
   setDocument(pdfDocument, baseUrl = null) {
+    this.#cancelDestinationFocus();
     this.baseUrl = baseUrl;
     this.pdfDocument = pdfDocument;
   }
@@ -84,6 +87,13 @@ class PDFLinkService {
 
   setHistory(pdfHistory) {
     this.pdfHistory = pdfHistory;
+  }
+
+  #cancelDestinationFocus() {
+    if (this.pdfHistory?.usesExternalHistory) {
+      this.#destinationFocusAC?.abort();
+      this.#destinationFocusAC = null;
+    }
   }
 
   /**
@@ -104,6 +114,7 @@ class PDFLinkService {
    * @param {number} value
    */
   set page(value) {
+    this.#cancelDestinationFocus();
     if (this.pdfDocument) {
       this.pdfViewer.currentPageNumber = value;
     }
@@ -137,6 +148,7 @@ class PDFLinkService {
    * @param {string|Array} dest - The named, or explicit, PDF destination.
    */
   async goToDestination(dest) {
+    this.#cancelDestinationFocus();
     if (!this.pdfDocument) {
       return;
     }
@@ -196,6 +208,7 @@ class PDFLinkService {
     });
 
     const ac = new AbortController();
+    this.#destinationFocusAC = ac;
     this.eventBus.on(
       "textlayerrendered",
       evt => {
@@ -213,6 +226,7 @@ class PDFLinkService {
    * @param {number|string} val - The page number, or page label.
    */
   goToPage(val) {
+    this.#cancelDestinationFocus();
     if (!this.pdfDocument) {
       return;
     }
@@ -356,6 +370,7 @@ class PDFLinkService {
    * @param {string} hash
    */
   setHash(hash) {
+    this.#cancelDestinationFocus();
     if (!this.pdfDocument) {
       return;
     }

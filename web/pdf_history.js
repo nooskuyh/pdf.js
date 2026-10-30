@@ -32,6 +32,9 @@ const UPDATE_VIEWAREA_TIMEOUT = 1000; // milliseconds
  * @typedef {object} PDFHistoryOptions
  * @property {PDFLinkService} linkService - The navigation/linking service.
  * @property {EventBus} eventBus - The application event bus.
+ * @property {object} [history] - Optional session-history backend. In addition
+ *   to state, pushState, replaceState, back and forward, it must support
+ *   addEventListener for popstate. An optional reset method clears local state.
  */
 
 /**
@@ -60,9 +63,11 @@ class PDFHistory {
   /**
    * @param {PDFHistoryOptions} options
    */
-  constructor({ linkService, eventBus }) {
+  constructor({ linkService, eventBus, history = window.history }) {
     this.linkService = linkService;
     this.eventBus = eventBus;
+    this._history = history;
+    this._historyEventTarget = this.usesExternalHistory ? history : window;
 
     this._initialized = false;
     this._fingerprint = "";
@@ -87,6 +92,10 @@ class PDFHistory {
     );
   }
 
+  get usesExternalHistory() {
+    return this._history !== window.history;
+  }
+
   /**
    * Initialize the history for the PDF document, using either the current
    * browser history entry or the document hash, whichever is present.
@@ -106,11 +115,11 @@ class PDFHistory {
     const reInitialized =
       this._fingerprint !== "" && this._fingerprint !== fingerprint;
     this._fingerprint = fingerprint;
-    this._updateUrl = updateUrl === true;
+    this._updateUrl = updateUrl === true && !this.usesExternalHistory;
 
     this._initialized = true;
     this.#bindEvents();
-    const state = window.history.state;
+    const state = this._history.state;
 
     this._popStateInProgress = false;
     this._blockHashChange = 0;
@@ -184,6 +193,9 @@ class PDFHistory {
     }
     this._initialBookmark = null;
     this._initialRotation = null;
+    if (this.usesExternalHistory) {
+      this._history.reset?.();
+    }
   }
 
   /**
@@ -330,9 +342,9 @@ class PDFHistory {
     if (!this._initialized || this._popStateInProgress) {
       return;
     }
-    const state = window.history.state;
+    const state = this._history.state;
     if (this.#isValidState(state) && state.uid > 0) {
-      window.history.back();
+      this._history.back();
     }
   }
 
@@ -344,9 +356,9 @@ class PDFHistory {
     if (!this._initialized || this._popStateInProgress) {
       return;
     }
-    const state = window.history.state;
+    const state = this._history.state;
     if (this.#isValidState(state) && state.uid < this._maxUid) {
-      window.history.forward();
+      this._history.forward();
     }
   }
 
@@ -380,10 +392,10 @@ class PDFHistory {
     if (
       typeof PDFJSDev !== "undefined" &&
       PDFJSDev.test("CHROME") &&
-      window.history.state?.chromecomState
+      this._history.state?.chromecomState
     ) {
       // history.state.chromecomState is managed by chromecom.js.
-      newState.chromecomState = window.history.state.chromecomState;
+      newState.chromecomState = this._history.state.chromecomState;
     }
     this.#updateInternalState(destination, newState.uid);
 
@@ -395,9 +407,9 @@ class PDFHistory {
       }
     }
     if (shouldReplace) {
-      window.history.replaceState(newState, "", newUrl);
+      this._history.replaceState(newState, "", newUrl);
     } else {
-      window.history.pushState(newState, "", newUrl);
+      this._history.pushState(newState, "", newUrl);
     }
   }
 
@@ -688,7 +700,11 @@ class PDFHistory {
       signal,
       ...internalOpt,
     });
-    window.addEventListener("popstate", this.#popState.bind(this), { signal });
+    this._historyEventTarget.addEventListener(
+      "popstate",
+      this.#popState.bind(this),
+      { signal }
+    );
     window.addEventListener("pagehide", this.#pageHide.bind(this), { signal });
   }
 
